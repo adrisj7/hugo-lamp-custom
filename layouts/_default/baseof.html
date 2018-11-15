@@ -6,6 +6,15 @@
     <script async custom-element="amp-analytics" src="https://cdn.ampproject.org/v0/amp-analytics-0.1.js"></script>
     <script async custom-element="amp-sidebar" src="https://cdn.ampproject.org/v0/amp-sidebar-0.1.js"></script>
 
+    <style>
+      /* CUSTOM I know this is bad practice but, if it ain't broke, don't fix it.*/
+      .block-link {
+        color: gray;/*$text;*/
+        font-size: 16px;
+        /*font-size: 100px;/*$base-font-size;*/
+      }
+    </style>
+
     <!-- Script for publisher using Google Adsense -->
     {{ if .Site.Params.adsensePublisher }}
       <script async custom-element="amp-ad" src="https://cdn.ampproject.org/v0/amp-ad-0.1.js"></script>
