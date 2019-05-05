@@ -1,13 +1,59 @@
 {{ define "main" }}
   {{ partial "header.html" . }}
+
+  <!-- Add firebase -->
+  <script src="https://www.gstatic.com/firebasejs/5.11.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/5.11.1/firebase-firestore.js"></script>
+
+  <!-- Front end ain't my thing, if it works it works. -->
+  <style>
+    .comments {
+        position: relative;
+        left: 30px;
+    }
+    .comment {
+        position: relative;
+        border-top: 1px solid #73AD21;
+        border-bottom: 1px solid #73AD21;
+        overflow: hidden;
+        background-color: #f7f7f7;
+        padding: 10px;
+    }
+    .comment-text {
+        position: relative;
+        left: 20px;
+    }
+    .richard {
+        background-color: #effdff;
+    }
+    .noah {
+        background-color: #fffce8;
+    }
+    .adris {
+        background-color: #ffefef;
+    }
+  </style>
+
   <section class="main post-detail">
     <header class="post-header">
-      <h1 class="post-title">{{ .Title }}</h1>
-      <p class="entry-meta"><span class="entry-time">{{ .Date.Format "Jan 2, 2006" }}</span> <!--{{ .ReadingTime }} min read--> </p>
+      <h1 class="post-title" id="post-title">{{ .Title }}</h1>
+      <p class="entry-meta"><span class="entry-time" id="post-time">{{ .Date.Format "Jan 2, 2006" }}</span>
+      <!--{{ .ReadingTime }} min read--> </p>
     </header>
-    {{ partial "adsense.html" . }}
+    <!--{{ partial "adsense.html" . }}-->
     <article class="post-content">{{ .Content }}</article>
     <footer class="post-footer">
+      <h1> COMMENTS </h1>
+      <div class="comments" id="comments">
+        (None found) <br>
+      </div>
+      <h2> Post Comment </h2>
+      Name (first name only please): <br>
+      <input type="text" id="comment-name"> <br>
+      Comment: <br>
+      <textarea rows="10" cols="50" id="comment-text"> </textarea> <br>
+      <input type="button" value="post" onclick="post_comment()">
+      <br><br>
       {{ if isset .Params "tags" }}
       <ul class="post-tags">
         {{ range $tag := .Params.tags }}
@@ -15,6 +61,111 @@
         {{ end }}
       </ul>
       {{ end }}
+
+      <!-- Firebase comment system -->
+      <script>
+        // Posts don't have IDs, so I'm distinguishing them by their title and post time.
+        // Bad way of doing it? Yes. Am I lazy? Yes.
+        function get_post_key() {
+            return document.getElementById("post-title").innerHTML + ", " + document.getElementById("post-time").innerHTML;
+        }
+
+
+        // Init firebase
+        var firebaseConfig = {
+          // Insecure? Yeah, but who's gonna care
+          apiKey: "AIzaSyDytIgG1Ssat3oP_sLOcHA8u1OytqgHh5s",
+          authDomain: "devblog-summer2019.firebaseapp.com",
+          databaseURL: "https://devblog-summer2019.firebaseio.com",
+          projectId: "devblog-summer2019",
+          storageBucket: "devblog-summer2019.appspot.com",
+          messagingSenderId: "583175786849",
+          appId: "1:583175786849:web:a3d77266c3eae186"
+        };
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+
+        var db = firebase.firestore();
+
+        // Do I smell jank?
+        function add_comment(name, comment, timestamp) {
+            var cclass = "comment ";
+            cclass += name.toLowerCase();
+            //if (name.toLowerCase() == "adris") {
+            //  cclass += "adris";
+            //} else
+            //if (name.toLowerCase() == "richard") {
+            //  cclass += "richard";
+            //} else
+            //if (name.toLowerCase() == "noah") {
+            //  cclass += "noah";
+            //}
+            var celement = document.getElementById("comments");
+            var text_result = "";
+            text_result += "<div class=\"" + cclass + "\">";
+            text_result +=   "<i> At " + timestamp + ":</i></br>";
+            text_result +=   "<b>" + name + ":</b><br>";
+            text_result +=   "<div class=\"comment-text\"> " + comment + "</div>";
+            text_result += "</div>"
+            text_result += "<br>";
+            celement.innerHTML += text_result;
+        }
+
+        function get_timestamp_text(fb_timestamp) {
+            //var d = fb_timestamp.toDate();
+            var d = new Date(0); // The 0 there is the key, which sets the date to the epoch
+            d.setUTCSeconds(fb_timestamp.seconds);
+            var tspl = d.toTimeString().split(" ");
+            var time = new Date();
+            var time1 = d.toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+            var dspl = d.toDateString().split(" ");
+            var timestamp = time1 + ", "
+                          + dspl[1] + " " + dspl[2] + ", " + dspl[3] + " "
+                          + "(" + tspl[1] + ")";
+            return timestamp;
+        }
+
+        // Push the button, post the comment
+        function post_comment() {
+            var name = document.getElementById("comment-name").value;
+            var content = document.getElementById("comment-text").value;
+
+            var timestamp = firebase.firestore.FieldValue.serverTimestamp();
+
+            //console.log("[NEW COMMENT] : On " + timestamp + ", " + name + " says: \"" + content + "\"");
+            //db.collection("comments").doc( get_post_key() ).set({
+            db.collection("comments").doc( get_post_key() ).collection("comments").add({
+                name : name,
+                timestamp: timestamp,
+                content : content
+            }).then(function() {
+                add_comment(name, content, "right now!");
+                document.getElementById("comment-name").value = "";
+                document.getElementById("comment-text").value = "";
+            });
+
+        }
+
+        // Grabs posts from firebase and updates them all
+        async function update_posts() {
+            var celement = document.getElementById("comments");
+            celement.innerHTML = "";
+            var comments = db.collection("comments").doc(get_post_key()).collection("comments");
+            const snapshot = await comments.orderBy("timestamp").get();
+            var c = snapshot.docs.map(doc => doc.data());
+            c.forEach((v) => {
+              console.log(v.timestamp);
+              add_comment(v.name, v.content, get_timestamp_text(v.timestamp));
+            });
+            if (c.length == 0) {
+                celement.innerHTML = "No comments found! Bring it on!";
+            }
+        }
+
+        // Start by updating everything
+        update_posts();
+      </script>
+
       <!-- I said no sharing! -->
       <!--<div class="sharing">
         <a class="share share-facebook" target="_blank" href="https://facebook.com/sharer/sharer.php?u={{ .Permalink }}" title="Share on Facebook"></a>
