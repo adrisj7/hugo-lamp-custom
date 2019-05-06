@@ -164,6 +164,12 @@
 
         // Start by updating everything
         update_posts();
+
+        // Update whenever we get a new post!
+        db.collection("comments").doc(get_post_key()).collection("comments").onSnapshot(function(doc) {
+            console.log("UPDATE!");
+            update_posts();
+        });
       </script>
 
       <!-- I said no sharing! -->
